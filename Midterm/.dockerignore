@@ -1,0 +1,8 @@
+.env
+.venv/
+.git/
+.idea/
+.vscode/
+__pycache__/
+postman/
+*.md

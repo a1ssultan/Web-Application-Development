@@ -1,0 +1,874 @@
+{
+  "info": {
+    "name": "Storage Locker Management API",
+    "description": "Midterm project. Run the requests top to bottom (or use Run collection): numbered requests follow the full workflow, the others demonstrate error cases.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "1. Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Database connected\", () => pm.expect(pm.response.json().database).to.eql(\"connected\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Checks that the API is running and can reach PostgreSQL."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lockers",
+      "item": [
+        {
+          "name": "2. Create locker",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"locker_number\", \"A-\" + Math.floor(Math.random() * 90000 + 10000));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", () => pm.response.to.have.status(201));",
+                  "const locker = pm.response.json();",
+                  "pm.collectionVariables.set(\"locker_id\", locker.id);",
+                  "pm.test(\"New locker is available\", () => pm.expect(locker.is_available).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lockers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers"
+              ]
+            },
+            "description": "Creates a locker. A unique locker number is generated in the pre-request script; the new ID is saved to {{locker_id}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": \"{{locker_number}}\",\n  \"size\": \"MEDIUM\",\n  \"hourly_rate\": \"500.00\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create locker - duplicate number (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lockers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers"
+              ]
+            },
+            "description": "Same locker number again -> 409 Conflict.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": \"{{locker_number}}\",\n  \"size\": \"MEDIUM\",\n  \"hourly_rate\": \"500.00\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create locker - invalid data (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lockers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers"
+              ]
+            },
+            "description": "Invalid size and a negative hourly rate -> 422 validation error.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": \"BAD-1\",\n  \"size\": \"HUGE\",\n  \"hourly_rate\": \"-10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "3. List lockers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is an array\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers"
+              ]
+            },
+            "description": "Lists all lockers with their current availability."
+          }
+        },
+        {
+          "name": "4. Get locker by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Correct locker\", () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get(\"locker_id\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/{{locker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "{{locker_id}}"
+              ]
+            },
+            "description": "Gets the locker created in step 2."
+          }
+        },
+        {
+          "name": "Get locker - not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "999999"
+              ]
+            },
+            "description": "A locker ID that does not exist -> 404."
+          }
+        },
+        {
+          "name": "5. Update locker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Rate updated\", () => pm.expect(pm.response.json().hourly_rate).to.eql(\"750.00\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lockers/{{locker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "{{locker_id}}"
+              ]
+            },
+            "description": "Changes size to LARGE and hourly rate to 750.00.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": \"{{locker_number}}\",\n  \"size\": \"LARGE\",\n  \"hourly_rate\": \"750.00\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "6. List available lockers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "const ids = pm.response.json().map(l => l.id);\nconst lockerId = Number(pm.collectionVariables.get(\"locker_id\"));",
+                  "pm.test(\"Our locker is available\", () => pm.expect(ids).to.include(lockerId));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/available",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "available"
+              ]
+            },
+            "description": "Active lockers without an ongoing rental. Our locker should be in the list."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rentals",
+      "item": [
+        {
+          "name": "7. Create rental",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", () => pm.response.to.have.status(201));",
+                  "const rental = pm.response.json();",
+                  "pm.collectionVariables.set(\"rental_id\", rental.id);",
+                  "pm.test(\"Status is ACTIVE\", () => pm.expect(rental.status).to.eql(\"ACTIVE\"));",
+                  "pm.test(\"Price is 2250.00\", () => pm.expect(rental.total_price).to.eql(\"2250.00\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals"
+              ]
+            },
+            "description": "Rents the locker for 3 hours. Price = 750.00 * 3 = 2250.00. The new ID is saved to {{rental_id}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locker_id\": \"{{locker_id}}\",\n  \"customer_name\": \"Aisultan\",\n  \"duration_hours\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "8. Check locker is no longer available",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "const ids = pm.response.json().map(l => l.id);\nconst lockerId = Number(pm.collectionVariables.get(\"locker_id\"));",
+                  "pm.test(\"Our locker is NOT available\", () => pm.expect(ids).to.not.include(lockerId));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/available",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "available"
+              ]
+            },
+            "description": "The rented locker must not appear in the available list."
+          }
+        },
+        {
+          "name": "9. Create rental for same locker (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Occupied message\", () => pm.expect(pm.response.json().detail).to.eql(\"Locker is already occupied\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals"
+              ]
+            },
+            "description": "Double booking is not allowed -> 409 Conflict.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locker_id\": \"{{locker_id}}\",\n  \"customer_name\": \"Another Customer\",\n  \"duration_hours\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create rental - invalid duration (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals"
+              ]
+            },
+            "description": "duration_hours must be a positive integer -> 422.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locker_id\": \"{{locker_id}}\",\n  \"customer_name\": \"Test\",\n  \"duration_hours\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List rentals",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response is an array\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rentals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals"
+              ]
+            },
+            "description": "Lists all rentals."
+          }
+        },
+        {
+          "name": "10. Get rental by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Correct rental\", () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get(\"rental_id\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rentals/{{rental_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{rental_id}}"
+              ]
+            },
+            "description": "Gets the rental created in step 7."
+          }
+        },
+        {
+          "name": "11. Update rental customer name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Name updated\", () => pm.expect(pm.response.json().customer_name).to.eql(\"Aisultan Khalelov\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/rentals/{{rental_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{rental_id}}"
+              ]
+            },
+            "description": "Only customer_name can be changed; price, status and dates are managed by the server.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Aisultan Khalelov\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete active rental (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rentals/{{rental_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{rental_id}}"
+              ]
+            },
+            "description": "An ACTIVE rental cannot be deleted -> 409."
+          }
+        },
+        {
+          "name": "12. Complete rental",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status is COMPLETED\", () => pm.expect(pm.response.json().status).to.eql(\"COMPLETED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rentals/{{rental_id}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{rental_id}}",
+                "complete"
+              ]
+            },
+            "description": "Marks the rental COMPLETED and releases the locker."
+          }
+        },
+        {
+          "name": "Complete rental again (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rentals/{{rental_id}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{rental_id}}",
+                "complete"
+              ]
+            },
+            "description": "A rental that is already COMPLETED cannot be completed again -> 409."
+          }
+        },
+        {
+          "name": "13. Check locker is available again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "const ids = pm.response.json().map(l => l.id);\nconst lockerId = Number(pm.collectionVariables.get(\"locker_id\"));",
+                  "pm.test(\"Our locker is available again\", () => pm.expect(ids).to.include(lockerId));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/available",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "available"
+              ]
+            },
+            "description": "After completion the locker is back in the available list."
+          }
+        },
+        {
+          "name": "Delete locker with rental history (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/{{locker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "{{locker_id}}"
+              ]
+            },
+            "description": "A locker that still has rentals cannot be deleted -> 409."
+          }
+        },
+        {
+          "name": "14. Delete completed rental",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rentals/{{rental_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "rentals",
+                "{{rental_id}}"
+              ]
+            },
+            "description": "COMPLETED and EXPIRED rentals can be deleted -> 204."
+          }
+        },
+        {
+          "name": "15. Delete locker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/{{locker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "{{locker_id}}"
+              ]
+            },
+            "description": "The locker has no rentals now, so it can be deleted -> 204."
+          }
+        },
+        {
+          "name": "Get deleted locker (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lockers/{{locker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lockers",
+                "{{locker_id}}"
+              ]
+            },
+            "description": "The locker is gone -> 404."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "locker_id",
+      "value": ""
+    },
+    {
+      "key": "rental_id",
+      "value": ""
+    },
+    {
+      "key": "locker_number",
+      "value": ""
+    }
+  ]
+}
